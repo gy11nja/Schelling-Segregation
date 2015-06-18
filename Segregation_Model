@@ -1,0 +1,168 @@
+__author__ = 'Nick'
+
+import itertools
+import copy
+import matplotlib.pyplot as plt
+import random
+
+''' The Segregation Model recreates the work of Schelling and his work on segregation.
+'''
+
+
+class Segregation:  # The Segregation class takes the below 6 parameters.
+    def __init__(self, width, height, ratio_empty, similarity_limit, iterations, number_races=2):
+        self.width = width
+        self.height = height
+        self.iterations = iterations
+        self.number_races = number_races
+        self.similarity_limit = similarity_limit
+        self.ratio_empty = ratio_empty
+
+    def populate(self):  # The populate method distributes people randomly in the grid.
+
+        self.empty_properties = []
+        self.agents = {}
+
+        self.all_properties = list(itertools.product(range(self.width), range(self.height)))
+        random.shuffle(self.all_properties)
+
+        self.number_empty = int(self.ratio_empty * len(self.all_properties))
+        self.empty_properties = self.all_properties[:self.number_empty]
+
+        self.remaining_properties = self.all_properties[self.number_empty:]
+        properties_by_race = [self.remaining_properties[i::self.number_races] for i in range(self.number_races)]
+        for i in range(self.number_races):
+            self.agents = dict(
+                self.agents.items() | dict(zip(properties_by_race[i], [i + 1] * len(properties_by_race[i]))).items())
+
+    '''The happiness method takes a house's coordinates, counts the number of similar or different coloured neighbors,
+    and checks the ratio of neighbors of similar color; returning 'true' if above the happiness threshold,
+    or 'false' if below.
+    '''
+
+    def happiness(self, x, y):
+
+        race = self.agents[(x, y)]
+        count_similar = 0  # Initial count of similar agents.
+        count_different = 0  # Initial count of different agents.
+
+        # Goes through neighboring agents of each agent, and checks whether neighbor is similar or different color.
+        if x > 0 and y > 0 and (x - 1, y - 1) not in self.empty_properties:
+
+            if self.agents[(x - 1, y - 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if y > 0 and (x, y - 1) not in self.empty_properties:
+            if self.agents[(x, y - 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x < (self.width - 1) and y > 0 and (x + 1, y - 1) not in self.empty_properties:
+            if self.agents[(x + 1, y - 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x > 0 and (x - 1, y) not in self.empty_properties:
+            if self.agents[(x - 1, y)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x < (self.width - 1) and (x + 1, y) not in self.empty_properties:
+            if self.agents[(x + 1, y)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x > 0 and y < (self.height - 1) and (x - 1, y + 1) not in self.empty_properties:
+            if self.agents[(x - 1, y + 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x > 0 and y < (self.height - 1) and (x, y + 1) not in self.empty_properties:
+            if self.agents[(x, y + 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+        if x < (self.width - 1) and y < (self.height - 1) and (x + 1, y + 1) not in self.empty_properties:
+            if self.agents[(x + 1, y + 1)] == race:
+                count_similar += 1
+            else:
+                count_different += 1
+
+        if (count_similar + count_different) == 0:
+            return False
+        else:
+            return float(count_similar) / (count_similar + count_different) < self.similarity_limit
+
+    '''This method checks whether agent is happy or not, if not then agent will be assigned to an empty
+    house, calling on the below method.
+    '''
+
+    def update(self):
+
+        for i in range(self.iterations):
+            self.old_agents = copy.deepcopy(self.agents)
+            n_changes = 0
+            for agent in self.old_agents:
+                if self.happiness(agent[0], agent[1]):
+                    agent_race = self.agents[agent]
+                    empty_property = random.choice(self.empty_properties)
+                    self.agents[empty_property] = agent_race
+                    del self.agents[agent]
+                    self.empty_properties.remove(empty_property)
+                    self.empty_properties.append(agent)
+                    n_changes += 1
+            if n_changes == 0:
+                break
+
+    '''This Method is called upon by the above update method to move unhappy people. The method takes a house's
+    co-ordinates, and moves the agents from the house to an empty house.
+    '''
+
+    def relocate_to_empty(self, x, y):
+
+        race = self.agents[(x, y)]
+        empty_property = random.choice(self.empty_properties)
+        self.updated_agents[empty_property] = race
+        del self.updated_agents[(x, y)]
+        self.empty_properties.remove(empty_property)
+        self.empty_properties.append((x, y))
+
+    def plot(self, title, file_name):  # Defines details of plot function, used to create environment and agents inside.
+
+        fig, ax = plt.subplots()
+        agent_colors = {1: 'b', 2: 'r'}  # Two colors used to define racial groups of agents.
+        for agent in self.agents:
+            ax.scatter(agent[0] + 0.5, agent[1] + 0.5, color=agent_colors[self.agents[agent]])
+
+        ax.set_title(title, fontsize=10, fontweight='bold')  # Specifying details for plot format.
+        ax.set_xlim([0, self.width])
+        ax.set_ylim([0, self.height])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        plt.savefig(file_name)
+
+
+def main():  # Updates the parameters for the Segregation class for each of the 3 Schelling Models.
+
+    schelling_1 = Segregation(50, 50, 0.3, 0.25, 500, 2)
+    schelling_1.populate()
+
+    schelling_2 = Segregation(50, 50, 0.3, 0.5, 500, 2)
+    schelling_2.populate()
+
+    schelling_3 = Segregation(50, 50, 0.3, 0.75, 500, 2)
+    schelling_3.populate()
+
+    schelling_1.plot('Initial Schelling Segregation Model', 'Initial_Schelling.png')
+
+    schelling_1.update(), schelling_2.update(), schelling_3.update()
+
+    # Sets the title parameters for each of the Schelling Models.
+    schelling_1.plot('Segregation Model: Happiness Threshold 25%', 'Schelling_Final_25.png')
+    schelling_2.plot('Segregation Model: Happiness Threshold 50%', 'Schelling_Final_50.png')
+    schelling_3.plot('Segregation Model: Happiness Threshold 75%', 'Schelling_Final_75.png')
+
+
+if __name__ == "__main__":
+    main()
